@@ -11,6 +11,7 @@ const
   FreeAllowance = 2500; // Watt-hours. No penalty if less power was consumed
   EnginePenaltyPerSec = 1;    // Penalty in seconds per Watt-hour consumed over Free Allowance. 1000 Wh of energy allows you to cruise for 15 minutes.
   Fa = 1.15;           // Amount of time penalty for next finisher / outlander
+  MaxDelay = 20*60;   // Maximum delay for finishers and outlanders in seconds
 
 var
   Dm, D1,
@@ -356,13 +357,13 @@ begin
     end
     else
     begin
-      // Outlanders get 1.2 x the slowest finisher
-        Pilots[i].Points := ( T0 - Tm*Fa )/60;
+      // Outlanders get 20 minutes delay
+        Pilots[i].Points := -1 * MaxDelay / 60;
     end;
 
     //Worst score a pilot can get is 1.2 times the last finisher's time.
-    if Pilots[i].Points < ( T0 - Tm*Fa )/60 Then
-      Pilots[i].Points := ( T0 - Tm*Fa )/60;
+    if Pilots[i].Points < (( -1 * MaxDelay )/60) Then
+      Pilots[i].Points := -1 * MaxDelay / 60;
       
     Pilots[i].Points := Round((Pilots[i].Points - Pilots[i].Penalty/60)*100)/100; // Expected penalty is in seconds
   end;
