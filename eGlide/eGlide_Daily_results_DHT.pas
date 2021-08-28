@@ -1,19 +1,20 @@
 Program eGlide_Elapsed_time_scoring_with_Distance_Handicapping;
 
 const 
-  Rmin = 500;         // Sector radius in meters that will be used by highest handicapped gliders.
+  Rmin = 1000;         // Sector radius in meters that will be used by highest handicapped gliders.
   Rfinish = 0;        // Finish ring radius. Use zero if finish line is used.
   ManualRadius = true; // If this is set to true, you must enter R_hcap for each Handicap factor manually in function Radius(Hcap)
   PowerTreshold = 20; // In Watts [W]. If Current*Voltage is less than that, it won't count towards consumed energy.
   RefVoltage = 110;   // Fallback if nothing else is known about voltage used when engine is running
   RefCurrent = 200;   // Fallback if nothing is known about current consumption
   RefPower = 120*280; // Fallback when only ENL is available (Antares in case of E2Glide 2020)
-  FreeAllowance = 2500; // Watt-hours. No penalty if less power was consumed
+  FreeAllowance = 2000; // Watt-hours. No penalty if less power was consumed
   EnginePenaltyPerSec = 1;    // Penalty in seconds per Watt-hour consumed over Free Allowance. 1000 Wh of energy allows you to cruise for 15 minutes.
   Fa = 1.15;           // Amount of time penalty for next finisher / outlander
   MaxDelay = 20*60;   // Maximum delay for finishers and outlanders in seconds
 
 var
+  fr_Hmax,
   Dm, D1,
   Dt, n1, n2, n3, n4, N, D0, Vo, T0, Tm,
   Pm, Pdm, Pvm, Pn, F, Fcr, Day: Double;
@@ -24,6 +25,10 @@ var
   Interval, NumIntervals, GateIntervalPos, NumIntervalsPos, PilotStartInterval, PilotStartTime, PilotPEVStartTime, StartTimeBuffer, PilotLegs, TaskPoints : Integer;
   AAT, TPRounded : boolean;
   Auto_Hcaps_on : boolean;
+
+  
+
+
 
 function Radius( Hcap:double ):double;
 var 
@@ -48,18 +53,19 @@ begin
 	  Info2 := 'Error: Highest handicap is zero!';
   	Exit;
   end;
-
+  fr_Hmax := Hmax;
   if ManualRadius then 
   begin
     case Hcap of
       // You must enter one line for each Handicap factor in the competition for each competition day
-       94 : R_hcap := 10400; // All values are in meters
-      108 : R_hcap := 5300;
-      114 : R_hcap := 3200;
-      117 : R_hcap := 2200;
-      118 : R_hcap := 1900;
-      119 : R_hcap := 1600;
-      120 : R_hcap := 1000;
+      // All values are in meters
+      119 : R_hcap := 1000; 
+      118 : R_hcap := 1300;
+      117 : R_hcap := 1300;
+      114 : R_hcap := 2200;
+      111 : R_hcap := 2900;
+      108 : R_hcap := 3600;
+      103 : R_hcap := 4900;
     else
       begin
         R_hcap := Rmin;
@@ -94,9 +100,11 @@ begin
     R_hcap := Radius(Pilots[i].hcap);
 
     //! Debug output
-    Pilots[i].Warning := Pilots[i].Warning + 'R_hcap: ' + FormatFloat('0',Radius(Pilots[i].hcap))+' m; ';
+    Pilots[i].Warning := Pilots[i].Warning + 'Hmax: ' + FormatFloat('0',fr_Hmax);
+    Pilots[i].Warning := Pilots[i].Warning + #10 + 'R_hcap: ' + FormatFloat('0',Radius(Pilots[i].hcap))+' m; ';
     Pilots[i].Warning := Pilots[i].Warning + #10 + 'Task points: ' + IntToStr(TaskPoints)+'; ';
     Pilots[i].Warning := Pilots[i].Warning + #10 + 'Pilot legs: ' + IntToStr(GetArrayLength(Pilots[i].Leg))+'; ';
+    Pilots[i].Warning := Pilots[i].Warning + #10 + 'Pilot legsT: ' + IntToStr(GetArrayLength(Pilots[i].LegT))+'; ';
     for j:=0 to GetArrayLength(Pilots[i].Leg)-1 do
     begin
       Pilots[i].Warning := Pilots[i].Warning + #10 + 'Leg['+IntToStr(j)+']: DisToTP = ' + FormatFloat('0',Pilots[i].Leg[j].DisToTp) + '; PilotLegDis = ' + FormatFloat('0',Pilots[i].Leg[j].d) + '; LegDis = ' + FormatFloat('0',Task.Point[j].d);
