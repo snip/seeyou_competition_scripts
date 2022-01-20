@@ -47,6 +47,10 @@ A TPilots record is provided by SeeYou to the Scoring script. TPilots record and
 All variable values are **double** if not indicated otherwise
 All times are **seconds since midnight** if not indicated otherwise
 
+### TPilots
+Type: Record
+Information about pilot's performance. Typically used as Pilots[i].Hcap where i is a running integer in a loop.
+
 | Variable                        | Description                                                  | Unit | Remarks                                       |
 | ------------------------------- | :----------------------------------------------------------- | ---- | --------------------------------------------- |
 | sstart                          | start time displayed in results sets                         | s    |                                               |
@@ -87,6 +91,8 @@ Type: record
 
 Information about each recorded position in the IGC file. This data is only available if the switch in Edit > Contest properties > Options > Expose fixes in scripts is enabled.
 
+Typical use: QNH_Altitiude := Pilots[i].Fix[j].AltQNH; where i and j are running integeres in loops.
+
 | Entry  | Description     | Unit | Remarks |
 | ------ | --------------- | ---- | ------- |
 | Tsec   | time of fix     | s    | integer        |
@@ -104,7 +110,9 @@ Information about each recorded position in the IGC file. This data is only avai
 
 Type: record
 
-Task leg information
+Task leg information for each Pilot's performance.
+
+Typical use: Leg_distance := Pilots[i].Leg[j].d; where i and j are running integers in loops.
 
 | Entry  | Description     | Unit | Remarks |
 | ------ | --------------- | ---- | ------- |
@@ -119,6 +127,8 @@ Type: record
 
 Records of Pilot Event Marker (PEM) events - created when pilot depressed "Event Marker" button.
 
+Typical use: PEV_time := Pilots[i].Markers[j].Tsec; where i and j are running integers in loops.
+
 | Entry        | Description                                      | Unit | Remarks |
 | ------------ | ------------------------------------------------ | ---- | ------- |
 | Tsec         | time of the PEM                                  | s    | integer |
@@ -132,6 +142,8 @@ Records of Pilot Event Marker (PEM) events - created when pilot depressed "Event
 Type: record
 
 Basic information about task
+
+Typical use: Task_Distance := Task.TotalDis;
 
 | Entry             | Description                     | Unit | Remarks |
 | ----------------- | ------------------------------- | ---- | ------- |
@@ -163,7 +175,9 @@ ClassID enum:
 
 Type: record
 
-Basic information about taskpoint and leg
+Basic information about taskpoint which defines the task. Note that in Assigned Area Tasks these are not the optimal points which pilot achieved, but the points which define the task.
+
+Typical use: Distance_to_next_TP_center := Task.TaskPoint[i].d; where i is a running integer in a loop.
 
 | Entry         | Description                           | Unit | Remarks |
 | ------------- | ------------------------------------- | ---- | ------- |
@@ -178,6 +192,12 @@ Basic information about taskpoint and leg
 ### Pilots
 
 Type:  record
+
+This record is used only in scripts which calculate total results. These are separate scripts from the scripts which compute results for each competition day. 
+
+If Total script is empty, the daily points for each pilot are simply added together to create the pilot's total score. If you write a total script, then you can do advanced calculations for the pilot's total like dropping the worst day, or even calculating FTV in paragliding competitions. Let loose your creativity.
+
+Typical use: Pilots[i].Total := Pilots[i].Total + Pilots[i].DayPts; where i is a running integer in a loop. 
 
 | Entry        | Description                                         | Unit | Remarks                                  |
 | ------------ | --------------------------------------------------- | ---- | ---------------------------------------- |
