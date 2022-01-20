@@ -49,7 +49,9 @@ All times are **seconds since midnight** if not indicated otherwise
 
 ### TPilots
 Type: Record
-Information about pilot's performance. Typically used as Pilots[i].Hcap where i is a running integer in a loop.
+Information about pilot's performance. 
+
+Typical use: Handicap := Pilots[i].Hcap; where i is a running integer in a loop.
 
 | Variable                        | Description                                                  | Unit | Remarks                                       |
 | ------------------------------- | :----------------------------------------------------------- | ---- | --------------------------------------------- |
