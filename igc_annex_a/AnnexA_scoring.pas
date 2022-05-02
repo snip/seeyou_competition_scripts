@@ -1,8 +1,21 @@
-Program SC3A_scoring;
+Program sc03_A_all_in_one_PEV;
+// Collaborate on writing scripts at Github:
+// https://github.com/naviter/seeyou_competition_scripts/
+//
+// Version 9.00, Date 07.02.2022 by Lothar Dittmer
+//   . support for PEV start scoring 
+//   . enter "PEVWaitTime=10" in DayTag to have PEV gate opening 10 min after PEV.
+//   . enter "PEVStartWindow=10" in DayTag to have 10 min long startwindows after PEV. 
+//   . separate Tags with Blank ' ' (required)
+//   . example: DayTag: "PEVWaitTime=10 PEVStartWindow=10" allows 3 possible start windows with length 10min starting 10 min after PEV 1,2 or 3
+//   . if "AllUserWrng" in DayTag is set to 0 user warning with PEVs is only shown if penalty should be necessary otherwise PEVs are displayed
+//   . buffer zone as a script parameter
+//   . added start speed interpolation according to DAEC SWO 7.3.5
+//   . enter "MaxStSpd=130" in DayTag to have interpolation and userwarnings if average start speed is higher than 130km/h 
 // Version 8.01, Date 20.04.2021
 //   . added ReadDayTagParameter() function to read any DayTag parameter
 //   . parameters in DayTag now have to be separated by space (only)
-//   . example: "Inteval=10 NumIntervals=7"
+//   . example: "PEVWaitTime=10 PEVStartWindow=10"
 // Version 8.00, Date 26.06.2019
 //   . merged all scripts into one
 //   . by default UseHandicaps is in auto mode
@@ -19,13 +32,6 @@ Program SC3A_scoring;
 //   . Bugfix division by zero
 // Version 5.00, Date 23.03.2018
 //   . Task Completion Ratio factor added according to SC03 2017 Edition valid from 1 October 2017, updated 4 January 2018
-// Version 4.00, Date 22.03.2017
-//   . Support for Designated start scoring (start gate intervals)
-//   . Enter "Interval=10" in DayTag to have 10 minute gate time intervals
-//   . Enter "NumIntervals=7" in DayTag to have 7 possible start gates (last one is exactly one hour after start gate opens). 
-//   . Separate Tags with ; (required)
-//   . Example of the above two with 13:00:00 entered as start gate. DayTag: "Inteval=10;NumIntervals=7" gives possible start times at 13:00, 13:10, 13:20, 13:30, 13:40, 13:50 and 14:00
-//   . Buffer zone as a script parameter
 // Version 3.30, Date 10.01.2013
 //   . BugFix: Td exchanged with Task.TaskTime - This fix is critical for all versions of SeeYou later than SeeYou 4.2
 // Version 3.20, Date 04.07.2008
@@ -41,7 +47,8 @@ Program SC3A_scoring;
 //   . added warnings when Exit 
 
 const UseHandicaps = 2;   // set to: 0 to disable handicapping, 1 to use handicaps, 2 is auto (handicaps only for club and multi-seat)
-
+      PevStartTimeBuffer = 30; // PEV which is less than PevStartTimeBuffer seconds later than last PEV will be ignored and not counted
+   
 var
   Dm, D1,
   Dt, n1, n2, n3, n4, N, D0, Vo, T0, Hmin,
@@ -52,11 +59,17 @@ var
   PmaxDistance, PmaxTime : double;
   
   i,j : integer;
-  str : String;
-  Interval, NumIntervals, PilotStartInterval, PilotStartTime, PilotPEVStartTime, StartTimeBuffer : Integer;
+ // str : String;
+  PevWaitTime,PEVStartWindow,AllUserWrng, PilotStartInterval, PilotStartTime, PilotPEVStartTime,StartTimeBuffer,MaxStartSpeed : Integer;
   AAT : boolean;
   Auto_Hcaps_on : boolean;
-
+  
+  // Starttime calculation and PEV Warnings
+  PilotStartSpeed, PilotStartSpeedSum, PilotStartSpeedFixes : double;
+  ActMarker  : TMarker; 
+  PevWarning : String;
+  Ignore_PEV,PEVStartNotValid : boolean;  
+  Pevcount, LastPev  : Integer; 
 
 Function MinValue( a,b,c : double ) : double;
 var m : double;
@@ -68,6 +81,22 @@ begin
   MinValue := m;
 end;
 
+Function GetTimeString (time: integer) : string;    // converts integer time in seconds to "hh:mm:ss" string
+var
+  h,min,sec: Integer;
+  sth,stmin,stsec:String; 
+begin
+  h:=Trunc(time/3600);
+  min:=Trunc((time-h*3600)/60);
+  sec:=time-h*3600-min*60;
+  sth:=IntToStr(h);
+  If Length(sth)=1 Then sth:='0'+sth;   
+  stmin:=IntToStr(min);
+  If Length(stmin)=1 Then stmin:='0'+stmin;   
+  stsec:=IntToStr(sec); 
+  If Length(stsec)=1 Then stsec:='0'+stsec;    
+  GetTimeString :=sth+':'+stmin+':'+stsec;           
+end;
 
 Function ReadDayTagParameter ( name : string; default : double ) : double;
 var
@@ -87,7 +116,6 @@ begin
     tp := Pos(',',sub);
     if (tp > 0) then
       sub := Copy (sub,0,tp-1) + '.' + Copy (sub,tp+1,Length(sub));
-
     ReadDayTagParameter := StrToFloat(sub);
   end
   else
@@ -146,36 +174,26 @@ begin
   if Task.ClassID = 'club' Then Auto_Hcaps_on := true;
   if Task.ClassID = 'double_seater' Then Auto_Hcaps_on := true;
 
-  // DESIGNATED START PROCEDURE
-  // Read Gate Interval info from DayTag. Return zero if Intervals and NumIntervals are unparsable or missing
+  // PEV Start PROCEDURE
+  // Read PEV Gate Parameters from DayTag. Return zero PEVWaitTime or PEVStartWindow are unparsable or missing
   
-  StartTimeBuffer := 30; // Start time buffer zone. If one starts 30 seconds too early he is scored by his actual start time
-  
-  Interval := Trunc(ReadDayTagParameter('Interval',0)) * 60;			// Interval length in seconds
-  NumIntervals := Trunc(ReadDayTagParameter('NumIntervals',0));			// Number of intervals
+  StartTimeBuffer:=30; // Start time buffer zone. If one starts 30 seconds too early he is scored by his actual start time
+  PEVWaitTime := Trunc(ReadDayTagParameter('PEVWAITTIME',0)) * 60;	// WaitTime in seconds 
+  PEVStartWindow := Trunc(ReadDayTagParameter('PEVSTARTWINDOW',0))* 60; // StartWindow open in seconds
+  MaxStartSpeed := Trunc(ReadDayTagParameter('MAXSTSPD',0));		// Startspeed interpolation done if MaxStartSpeed (in km/h) >0
+  AllUserWrng := Trunc(ReadDayTagParameter('ALLUSERWRNG',1));		// Output of All UserWarnings with PEVs: ON=1(for debugging and testing) OFF=0  
 
-  if Interval > 0 Then
-    Info3 := 'Start time interval = '+IntToStr(Interval div 60)+'min';
-  if (Interval > 0) and (NumIntervals > 0) then																					// Only display number of intervals if it is not zero
-    Info3 := Info3 + ', number of intervals = '+IntToStr(NumIntervals);
-  
-  // Adjust Pilot start times and speeds if Start Gate intervals are used
-  if Interval > 0 Then
-  begin
-    for i:=0 to GetArrayLength(Pilots)-1 do
-	begin
-	  PilotStartInterval := Round(Pilots[i].start - Task.NoStartBeforeTime) div Interval;					// Start interval used by pilot. 0 = first interval = opening of the start line
-	  PilotStartTime := Task.NoStartBeforeTime + PilotStartInterval * Interval;
-
-	  If PilotStartInterval > (NumIntervals-1) Then PilotStartInterval := NumIntervals-1;					// Last start interval if pilot started late
-	  If (Pilots[i].start > 0) and ((PilotStartTime + Interval - Pilots[i].start) > StartTimeBuffer) Then		// Check for buffer zone to next start interval
-	  begin
-        Pilots[i].start := PilotStartTime;
-		if Pilots[i].speed > 0 Then
-		  Pilots[i].speed := Pilots[i].dis / (Pilots[i].finish - Pilots[i].start);
-	  end;																									// Else not required. If started in buffer zone actual times are used
-	end;
-  end;
+  // If DayTag variables PEVWaitTime and PEVStartWindow are set (>0) then PEV Marker Start Warnings are shown 
+  if (PEVWaitTime > 0) and (PEVStartWindow> 0) then																					// Only display number of intervals if it is not zero
+    Begin
+    Info3 :='PEVWaitTime: '+IntToStr(PevWaitTime div 60)+'min, PEVStartWindow: '+IntToStr(PevStartWindow div 60)+'min, ';
+    End
+  Else 
+    Begin
+    Info3:='PEVStarts: OFF, ';
+    PEVWaitTime:=0;
+    PEVStartWindow:=0;
+    End;  
 
   // Calculation of basic parameters
   N := 0;  // Number of pilots having had a competition launch
@@ -340,10 +358,84 @@ begin
     Info2 := Info2 + ', handicapping enabled';
 
   // for debugging:
-  Info3 := 'N: ' + IntToStr(Round(N));
+  Info3 := Info3 +' N: ' + IntToStr(Round(N));
   Info3 := Info3 + ', n1: ' + IntToStr(Round(n1));
   Info3 := Info3 + ', n2: ' + IntToStr(Round(n2));
   Info3 := Info3 + ', Do: ' + FormatFloat('0.00',D0/1000.0) + 'km';
   Info3 := Info3 + ', Vo: ' + FormatFloat('0.00',Vo*3.6) + 'km/h';
+  
+//give out PEV as Warnings
+// PevStartTimeBuffer is set to 30
+
+  for i:=0 to GetArrayLength(Pilots)-1 do
+   Begin
+   Pilots[i].Warning := ''; 
+   If (Pilots[i].start > 0) Then
+      begin	
+      If (PEVWaitTime>0) and (PEVStartWindow>0) then   
+           Begin
+              PevWarning:='';
+              PevCount:=0; LastPev:=0;
+              Ignore_PEV:=false;
+              for j:=0 to GetArrayLength(Pilots[i].Markers)-1 do
+              Begin
+              Ignore_Pev:= ((Pilots[i].Markers[j].Tsec-LastPev<=PevStartTimeBuffer) and (Lastpev>0)) or (Pevcount=3);
+              If Ignore_Pev Then
+                 Begin
+                 If (ALLUserWrng>=1)Then PevWarning := PevWarning + ' (PEV ignored='+ GetTimestring(Pilots[i].Markers[j].Tsec) +'!), '
+                 End
+              Else
+                 Begin
+                 PevCount:=PevCount+1;
+                 LastPev:= Pilots[i].Markers[j].Tsec;
+                 If (AllUserWrng>=1) Then PevWarning := PevWarning + 'PEV'+IntTostr(Pevcount)+'='+ GetTimestring(Pilots[i].Markers[j].Tsec)+', ';
+                 End;
+              End;
+              If PEVCount>0 Then 
+                 Begin
+                 PevStartNotValid:=(Trunc(Pilots[i].Start)<(LastPEV+PEVWaitTime)) or (Trunc(Pilots[i].Start)>(LastPEV+PEVWaitTime+PEVStartWindow));
+                 If PevStartNotValid Then
+                 PEVWarning:=PevWarning+' Start='+GetTimestring(Trunc(Pilots[i].Start))+' PEVGate not open!'+', ' 
+                 else
+                     If (Pilots[i].start>=Task.NoStartBeforeTime) and (AllUserWrng>=1) Then
+                     PEVWarning:=PevWarning+' Start='+GetTimestring(Trunc(Pilots[i].Start))+' OK'+', '; 
+                 Pilots[i].Warning:= PevWarning;
+                 End
+               Else
+                 PEVWarning:='PEV not found!'+', ';
+              Pilots[i].Warning:= PevWarning;   
+           End;
+      If Pilots[i].start<Task.NoStartBeforeTime then Pilots[i].Warning :=Pilots[i].Warning+' Start='+GetTimestring(Trunc(Pilots[i].start))+' before gate opens!'+', ';     
+      end;
+   End;
+ 
+// +/- 10 sec start speed interpolation if variable MaxStartSpeed is set by daytag "MaxStSpd= " to values >0
+  If MaxStartSpeed>0 Then 
+  for i:=0 to GetArrayLength(Pilots)-1 do
+  begin
+    PilotStartSpeed := 0;
+	PilotStartSpeedSum := 0;
+	PilotStartSpeedFixes := 0;	
+	If (Pilots[i].start > 0) Then
+	begin
+	  for j := 0 to GetArrayLength(Pilots[i].Fixes)-1 do
+	  begin
+	    if (Pilots[i].Fixes[j].Tsec >= Pilots[i].start-9) and (Pilots[i].Fixes[j].Tsec <= Pilots[i].start+10) Then
+		begin
+		  PilotStartSpeedSum := PilotStartSpeedSum + Pilots[i].Fixes[j].Gsp;
+		  PilotStartSpeedFixes := PilotStartSpeedFixes + 1;
+	        end;
+	  end;
+     If PilotStartSpeedfixes>0 then PilotStartSpeed := PilotStartSpeedSum / PilotStartSpeedFixes;
+     If (Round(PilotStartSpeed*3.6) > MaxStartSpeed) Then
+	 Pilots[i].Warning := Pilots[i].Warning+ ' Startspeed=' + FloatToStr(Round(PilotStartSpeed*3.6)) + ' km/h-> ' + FloatToStr(Round(PilotStartSpeed*3.6)- MaxStartSpeed) + ' km/h too fast' ;
+     end;
+  end;
 
 end.
+
+
+
+
+
+
