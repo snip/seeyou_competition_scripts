@@ -1,4 +1,4 @@
-Program sc03_A_all_in_one_PEV;
+Program IGC_Annex_A_scoring_2022;
 // Collaborate on writing scripts at Github:
 // https://github.com/naviter/seeyou_competition_scripts/
 //
