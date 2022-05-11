@@ -15,7 +15,7 @@ Program Solve_ties_by_daily_ranks;
 
 const
   ONLYTOPRANKS = 3;
-  SMALLINC = 0.01;
+  SMALLINC = 0.1;
 
 var
   i,j,x : Integer;
