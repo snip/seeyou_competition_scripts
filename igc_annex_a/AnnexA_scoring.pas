@@ -347,7 +347,7 @@ begin
   Info1 := Info1 + ', Fcr = '+FormatFloat('0.000',Fcr);
   Info1 := Info1 + ', Max speed pts: '+IntToStr(Round(Pvm));
 
-  If (n1/N) < 0.25 then
+  If (n1/N) <= 0.25 then
     Info1 := 'Day not valid - rule 8.2.1b';
 
   Info2 := 'Dm = ' + IntToStr(Round(Dm/1000.0)) + 'km';
