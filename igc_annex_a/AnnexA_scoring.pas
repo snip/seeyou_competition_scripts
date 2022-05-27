@@ -38,11 +38,11 @@ Program IGC_Annex_A_scoring_2022;
 // Version 3.0
 //   . Added Hmin instead of H0. Score is now calculated using minimum handicap as opposed to maximum handicap as before
 // Version 3.01
-//   . Changed If Pilots[i].takeoff > 0 to If Pilots[i].takeoff >= 0. It is theoretically possible that one takes off at 00:00:00 UTC
-//   . Changed If Pilots[i].start > 0 to If Pilots[i].start >= 0. It is theoretically possible that one starts at 00:00:00 UTC
+//   . Changed if Pilots[i].takeoff > 0 to if Pilots[i].takeoff >= 0. It is theoretically possible that one takes off at 00:00:00 UTC
+//   . Changed if Pilots[i].start > 0 to if Pilots[i].start >= 0. It is theoretically possible that one starts at 00:00:00 UTC
 // Version 3.10
 //   . removed line because it doesn't exist in Annex A 2006:
-// 			If Pilots[i].dis*Hmin/Pilots[i].Hcap < (2.0/3.0*D0) Then Pd := Pdm*Pilots[i].dis*Hmin/Pilots[i].Hcap/(2.0/3.0*D0);
+// 			if Pilots[i].dis*Hmin/Pilots[i].Hcap < (2.0/3.0*D0) Then Pd := Pdm*Pilots[i].dis*Hmin/Pilots[i].Hcap/(2.0/3.0*D0);
 // Version 3.20
 //   . added warnings when Exit 
 
@@ -75,8 +75,8 @@ Function MinValue( a,b,c : double ) : double;
 var m : double;
 begin
   m := a;
-  If b < m Then m := b;
-  If c < m Then m := c;
+  if b < m Then m := b;
+  if c < m Then m := c;
 
   MinValue := m;
 end;
@@ -90,11 +90,11 @@ begin
   min:=Trunc((time-h*3600)/60);
   sec:=time-h*3600-min*60;
   sth:=IntToStr(h);
-  If Length(sth)=1 Then sth:='0'+sth;   
+  if Length(sth)=1 Then sth:='0'+sth;   
   stmin:=IntToStr(min);
-  If Length(stmin)=1 Then stmin:='0'+stmin;   
+  if Length(stmin)=1 Then stmin:='0'+stmin;   
   stsec:=IntToStr(sec); 
-  If Length(stsec)=1 Then stsec:='0'+stsec;    
+  if Length(stsec)=1 Then stsec:='0'+stsec;    
   GetTimeString :=sth+':'+stmin+':'+stsec;           
 end;
 
@@ -136,12 +136,12 @@ begin
     exit;
   end;
 
-  If Task.TaskTime = 0 then
+  if Task.TaskTime = 0 then
     AAT := false
   else
     AAT := true;
 
-  If (AAT = true) AND (Task.TaskTime < 1800) then
+  if (AAT = true) AND (Task.TaskTime < 1800) then
   begin
     Info1 := '';
     Info2 := 'ERROR: Incorrect Task Time';
@@ -177,23 +177,23 @@ begin
   // PEV Start PROCEDURE
   // Read PEV Gate Parameters from DayTag. Return zero PEVWaitTime or PEVStartWindow are unparsable or missing
   
-  StartTimeBuffer:=30; // Start time buffer zone. If one starts 30 seconds too early he is scored by his actual start time
+  StartTimeBuffer:=30; // Start time buffer zone. if one starts 30 seconds too early he is scored by his actual start time
   PEVWaitTime := Trunc(ReadDayTagParameter('PEVWAITTIME',0)) * 60;	// WaitTime in seconds 
   PEVStartWindow := Trunc(ReadDayTagParameter('PEVSTARTWINDOW',0))* 60; // StartWindow open in seconds
   MaxStartSpeed := Trunc(ReadDayTagParameter('MAXSTSPD',0));		// Startspeed interpolation done if MaxStartSpeed (in km/h) >0
   AllUserWrng := Trunc(ReadDayTagParameter('ALLUSERWRNG',1));		// Output of All UserWarnings with PEVs: ON=1(for debugging and testing) OFF=0  
 
-  // If DayTag variables PEVWaitTime and PEVStartWindow are set (>0) then PEV Marker Start Warnings are shown 
+  // if DayTag variables PEVWaitTime and PEVStartWindow are set (>0) then PEV Marker Start Warnings are shown 
   if (PEVWaitTime > 0) and (PEVStartWindow> 0) then																					// Only display number of intervals if it is not zero
-    Begin
+    begin
     Info3 :='PEVWaitTime: '+IntToStr(PevWaitTime div 60)+'min, PEVStartWindow: '+IntToStr(PevStartWindow div 60)+'min, ';
-    End
-  Else 
-    Begin
+    end
+  else 
+    begin
     Info3:='PEVStarts: OFF, ';
     PEVWaitTime:=0;
     PEVStartWindow:=0;
-    End;  
+    end;  
 
   // Calculation of basic parameters
   N := 0;  // Number of pilots having had a competition launch
@@ -203,15 +203,15 @@ begin
   
   for i:=0 to GetArrayLength(Pilots)-1 do
   begin
-    If UseHandicaps = 0 Then Pilots[i].Hcap := 1;
-    If (UseHandicaps = 2) and (Auto_Hcaps_on = false) Then Pilots[i].Hcap := 1;
+    if UseHandicaps = 0 Then Pilots[i].Hcap := 1;
+    if (UseHandicaps = 2) and (Auto_Hcaps_on = false) Then Pilots[i].Hcap := 1;
 
-    If not Pilots[i].isHC Then
+    if not Pilots[i].isHC Then
     begin
-      If Pilots[i].Hcap < Hmin Then Hmin := Pilots[i].Hcap; // Lowest Handicap of all competitors in the class
+      if Pilots[i].Hcap < Hmin Then Hmin := Pilots[i].Hcap; // Lowest Handicap of all competitors in the class
     end;
   end;
-  If Hmin=0 Then begin
+  if Hmin=0 Then begin
           Info1 := '';
 	  Info2 := 'Error: Lowest handicap is zero!';
   	Exit;
@@ -219,14 +219,14 @@ begin
 
   for i:=0 to GetArrayLength(Pilots)-1 do
   begin
-    If not Pilots[i].isHC Then
+    if not Pilots[i].isHC Then
     begin
-      If Pilots[i].dis*Hmin/Pilots[i].Hcap >= Dm Then n1 := n1+1;  // Competitors who have achieved at least Dm
-      If Pilots[i].dis*Hmin/Pilots[i].Hcap >= ( Dm / 2.0) Then n4 := n4+1;  // Number of competitors who achieve a Handicapped Distance (Dh) of at least Dm/2
-      If Pilots[i].takeoff >= 0 Then N := N+1;    // Number of competitors in the class having had a competition launch that Day
+      if Pilots[i].dis*Hmin/Pilots[i].Hcap >= Dm Then n1 := n1+1;  // Competitors who have achieved at least Dm
+      if Pilots[i].dis*Hmin/Pilots[i].Hcap >= ( Dm / 2.0) Then n4 := n4+1;  // Number of competitors who achieve a Handicapped Distance (Dh) of at least Dm/2
+      if Pilots[i].takeoff >= 0 Then N := N+1;    // Number of competitors in the class having had a competition launch that Day
     end;
   end;
-  If N=0 Then begin
+  if N=0 Then begin
           Info1 := '';
 	  Info2 := 'Warning: Number of competition pilots launched is zero';
   	Exit;
@@ -237,35 +237,35 @@ begin
   Vo := 0;
   for i:=0 to GetArrayLength(Pilots)-1 do
   begin
-    If not Pilots[i].isHC Then
+    if not Pilots[i].isHC Then
     begin
       // Find the highest Corrected distance
-      If Pilots[i].dis*Hmin/Pilots[i].Hcap > D0 Then D0 := Pilots[i].dis*Hmin/Pilots[i].Hcap;
+      if Pilots[i].dis*Hmin/Pilots[i].Hcap > D0 Then D0 := Pilots[i].dis*Hmin/Pilots[i].Hcap;
       
       // Find the highest finisher's speed of the day
       // and corresponding Task Time
-      If Pilots[i].speed*Hmin/Pilots[i].Hcap = Vo Then // in case of a tie, lowest Task Time applies
+      if Pilots[i].speed*Hmin/Pilots[i].Hcap = Vo Then // in case of a tie, lowest Task Time applies
       begin
-        If (Pilots[i].finish-Pilots[i].start) < T0 Then
+        if (Pilots[i].finish-Pilots[i].start) < T0 Then
         begin
           Vo := Pilots[i].speed*Hmin/Pilots[i].Hcap;
           T0 := Pilots[i].finish-Pilots[i].start;
         end;
       end
-      Else
+      else
       begin
-        If Pilots[i].speed*Hmin/Pilots[i].Hcap > Vo Then
+        if Pilots[i].speed*Hmin/Pilots[i].Hcap > Vo Then
         begin
           Vo := Pilots[i].speed*Hmin/Pilots[i].Hcap;
           T0 := Pilots[i].finish-Pilots[i].start;
-          If (AAT = true) and (T0 < Task.TaskTime) Then       // If marking time is shorter than Task time, Task time must be used for computations
+          if (AAT = true) and (T0 < Task.TaskTime) Then       // if marking time is shorter than Task time, Task time must be used for computations
             T0 := Task.TaskTime;
         end;
       end;
     end;
   end;
 
-  If D0=0 Then begin
+  if D0=0 Then begin
 	  Info1 := '';
           Info2 := 'Warning: Longest handicapped distance is zero';
   	Exit;
@@ -274,12 +274,12 @@ begin
   // Maximum available points for the Day
   PmaxDistance := 1250 * (D0/D1) - 250;
   PmaxTime := (400*T0/3600.0)-200;
-  If T0 <= 0 Then PmaxTime := 1000;
+  if T0 <= 0 Then PmaxTime := 1000;
   Pm := MinValue( PmaxDistance, PmaxTime, 1000.0 );
   
   // Day Factor
   F := 1.25* n1/N;
-  If F>1 Then F := 1;
+  if F>1 Then F := 1;
   
   // Number of competitors who have achieved at least 2/3 of best speed for the day Vo
   n2 := 0;
@@ -288,10 +288,10 @@ begin
 
   for i:=0 to GetArrayLength(Pilots)-1 do
   begin
-    If not Pilots[i].isHC Then
+    if not Pilots[i].isHC Then
     begin
       n3 := n3+1;
-      If Pilots[i].speed*Hmin/Pilots[i].Hcap > (2.0/3.0*Vo) Then
+      if Pilots[i].speed*Hmin/Pilots[i].Hcap > (2.0/3.0*Vo) Then
       begin
         n2 := n2+1;
       end;
@@ -300,9 +300,9 @@ begin
   
   // Completion Ratio Factor
   Fcr := 1;
-  If n1 > 0 then
+  if n1 > 0 then
     Fcr := 1.2*(n2/n1)+0.6;
-  If Fcr>1 Then Fcr := 1;
+  if Fcr>1 Then Fcr := 1;
 
   Pvm := 2.0/3.0 * (n2/N) * Pm;  // maximum available Speed Points for the Day
   Pdm := Pm-Pvm;                 // maximum available Distance Points for the Day
@@ -310,13 +310,13 @@ begin
   for i:=0 to GetArrayLength(Pilots)-1 do
   begin
     // For any finisher
-    If Pilots[i].finish > 0 Then
+    if Pilots[i].finish > 0 Then
     begin
       Pv := Pvm * (Pilots[i].speed*Hmin/Pilots[i].Hcap - 2.0/3.0*Vo)/(1.0/3.0*Vo);
-      If Pilots[i].speed*Hmin/Pilots[i].Hcap < (2.0/3.0*Vo) Then Pv := 0;
+      if Pilots[i].speed*Hmin/Pilots[i].Hcap < (2.0/3.0*Vo) Then Pv := 0;
       Pd := Pdm;
     end
-    Else
+    else
     //For any non-finisher
     begin
       Pv := 0;
@@ -337,7 +337,7 @@ begin
   end;
   
   // Info fields, also presented on the Score Sheets
-  If AAT = true Then
+  if AAT = true Then
     Info1 := 'Assigned Area Task, '
   else
     Info1 := 'Racing Task, ';
@@ -347,12 +347,12 @@ begin
   Info1 := Info1 + ', Fcr = '+FormatFloat('0.000',Fcr);
   Info1 := Info1 + ', Max speed pts: '+IntToStr(Round(Pvm));
 
-  If (n1/N) <= 0.25 then
+  if (n1/N) <= 0.25 then
     Info1 := 'Day not valid - rule 8.2.1b';
 
   Info2 := 'Dm = ' + IntToStr(Round(Dm/1000.0)) + 'km';
   Info2 := Info2 + ', D1 = ' + IntToStr(Round(D1/1000.0)) + 'km';
-  If (UseHandicaps = 0) or ((UseHandicaps = 2) and (Auto_Hcaps_on = false)) Then
+  if (UseHandicaps = 0) or ((UseHandicaps = 2) and (Auto_Hcaps_on = false)) Then
     Info2 := Info2 + ', no handicaps'
   else
     Info2 := Info2 + ', handicapping enabled';
@@ -364,59 +364,62 @@ begin
   Info3 := Info3 + ', Do: ' + FormatFloat('0.00',D0/1000.0) + 'km';
   Info3 := Info3 + ', Vo: ' + FormatFloat('0.00',Vo*3.6) + 'km/h';
   
-//give out PEV as Warnings
+// Give out PEV as Warnings
 // PevStartTimeBuffer is set to 30
 
   for i:=0 to GetArrayLength(Pilots)-1 do
-   Begin
-   Pilots[i].Warning := ''; 
-   If (Pilots[i].start > 0) Then
-      begin	
-      If (PEVWaitTime>0) and (PEVStartWindow>0) then   
-           Begin
-              PevWarning:='';
-              PevCount:=0; LastPev:=0;
-              Ignore_PEV:=false;
-              for j:=0 to GetArrayLength(Pilots[i].Markers)-1 do
-              Begin
-              Ignore_Pev:= ((Pilots[i].Markers[j].Tsec-LastPev<=PevStartTimeBuffer) and (Lastpev>0)) or (Pevcount=3);
-              If Ignore_Pev Then
-                 Begin
-                 If (ALLUserWrng>=1)Then PevWarning := PevWarning + ' (PEV ignored='+ GetTimestring(Pilots[i].Markers[j].Tsec) +'!), '
-                 End
-              Else
-                 Begin
-                 PevCount:=PevCount+1;
-                 LastPev:= Pilots[i].Markers[j].Tsec;
-                 If (AllUserWrng>=1) Then PevWarning := PevWarning + 'PEV'+IntTostr(Pevcount)+'='+ GetTimestring(Pilots[i].Markers[j].Tsec)+', ';
-                 End;
-              End;
-              If PEVCount>0 Then 
-                 Begin
-                 PevStartNotValid:=(Trunc(Pilots[i].Start)<(LastPEV+PEVWaitTime)) or (Trunc(Pilots[i].Start)>(LastPEV+PEVWaitTime+PEVStartWindow));
-                 If PevStartNotValid Then
-                 PEVWarning:=PevWarning+' Start='+GetTimestring(Trunc(Pilots[i].Start))+' PEVGate not open!'+', ' 
-                 else
-                     If (Pilots[i].start>=Task.NoStartBeforeTime) and (AllUserWrng>=1) Then
-                     PEVWarning:=PevWarning+' Start='+GetTimestring(Trunc(Pilots[i].Start))+' OK'+', '; 
-                 Pilots[i].Warning:= PevWarning;
-                 End
-               Else
-                 PEVWarning:='PEV not found!'+', ';
-              Pilots[i].Warning:= PevWarning;   
-           End;
-      If Pilots[i].start<Task.NoStartBeforeTime then Pilots[i].Warning :=Pilots[i].Warning+' Start='+GetTimestring(Trunc(Pilots[i].start))+' before gate opens!'+', ';     
+  begin
+    Pilots[i].Warning := ''; 
+    if (Pilots[i].start > 0) Then
+    begin	
+      if (PEVWaitTime>0) and (PEVStartWindow>0) then   
+      begin
+        PevWarning:='';
+        PevCount:=0; LastPev:=0;
+        Ignore_PEV:=false;
+
+        for j:=0 to GetArrayLength(Pilots[i].Markers)-1 do
+        begin
+          Ignore_Pev:= ((Pilots[i].Markers[j].Tsec-LastPev<=PevStartTimeBuffer) and (Lastpev>0)) or (Pevcount=3); // TODO: Also ignore PEV if PEV time is greater than start time.
+          if Ignore_Pev Then
+             begin
+               if (ALLUserWrng>=1)Then PevWarning := PevWarning + ' (PEV ignored='+ GetTimestring(Pilots[i].Markers[j].Tsec) +'!), '
+             end
+          else
+             begin
+               PevCount:=PevCount+1;
+               LastPev:= Pilots[i].Markers[j].Tsec;
+               if (AllUserWrng>=1) Then PevWarning := PevWarning + 'PEV'+IntTostr(Pevcount)+'='+ GetTimestring(Pilots[i].Markers[j].Tsec)+', ';
+             end;
+        end;
+        
+        if PEVCount>0 Then 
+        begin
+          PevStartNotValid:=(Trunc(Pilots[i].Start)<(LastPEV+PEVWaitTime)) or (Trunc(Pilots[i].Start)>(LastPEV+PEVWaitTime+PEVStartWindow));
+          if PevStartNotValid Then
+            PEVWarning:=PevWarning+' Start='+GetTimestring(Trunc(Pilots[i].Start))+' PEVGate not open!'+', ' 
+          else
+            if (Pilots[i].start>=Task.NoStartBeforeTime) and (AllUserWrng>=1) Then
+              PEVWarning:=PevWarning+' Start='+GetTimestring(Trunc(Pilots[i].Start))+' OK'+', '; 
+          Pilots[i].Warning:= PevWarning;
+        end
+        else
+           PEVWarning:='PEV not found!'+', ';
+
+        Pilots[i].Warning:= PevWarning;   
       end;
-   End;
+      if Pilots[i].start<Task.NoStartBeforeTime then Pilots[i].Warning :=Pilots[i].Warning+' Start='+GetTimestring(Trunc(Pilots[i].start))+' before gate opens!'+', ';     
+    end;
+  end;
  
 // +/- 10 sec start speed interpolation if variable MaxStartSpeed is set by daytag "MaxStSpd= " to values >0
-  If MaxStartSpeed>0 Then 
+  if MaxStartSpeed>0 Then 
   for i:=0 to GetArrayLength(Pilots)-1 do
   begin
     PilotStartSpeed := 0;
 	PilotStartSpeedSum := 0;
 	PilotStartSpeedFixes := 0;	
-	If (Pilots[i].start > 0) Then
+	if (Pilots[i].start > 0) Then
 	begin
 	  for j := 0 to GetArrayLength(Pilots[i].Fixes)-1 do
 	  begin
@@ -424,18 +427,13 @@ begin
 		begin
 		  PilotStartSpeedSum := PilotStartSpeedSum + Pilots[i].Fixes[j].Gsp;
 		  PilotStartSpeedFixes := PilotStartSpeedFixes + 1;
-	        end;
+	    end;
 	  end;
-     If PilotStartSpeedfixes>0 then PilotStartSpeed := PilotStartSpeedSum / PilotStartSpeedFixes;
-     If (Round(PilotStartSpeed*3.6) > MaxStartSpeed) Then
-	 Pilots[i].Warning := Pilots[i].Warning+ ' Startspeed=' + FloatToStr(Round(PilotStartSpeed*3.6)) + ' km/h-> ' + FloatToStr(Round(PilotStartSpeed*3.6)- MaxStartSpeed) + ' km/h too fast' ;
-     end;
+
+      if PilotStartSpeedfixes>0 then 
+	    PilotStartSpeed := PilotStartSpeedSum / PilotStartSpeedFixes;
+      if (Round(PilotStartSpeed*3.6) > MaxStartSpeed) Then
+	    Pilots[i].Warning := Pilots[i].Warning+ ' Startspeed=' + FloatToStr(Round(PilotStartSpeed*3.6)) + ' km/h-> ' + FloatToStr(Round(PilotStartSpeed*3.6)- MaxStartSpeed) + ' km/h too fast' ;
+    end;
   end;
-
 end.
-
-
-
-
-
-
