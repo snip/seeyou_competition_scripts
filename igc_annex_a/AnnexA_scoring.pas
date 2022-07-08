@@ -2,6 +2,8 @@ Program IGC_Annex_A_scoring_2022;
 // Collaborate on writing scripts at Github:
 // https://github.com/naviter/seeyou_competition_scripts/
 //
+// Version 9.01, Date 08.07.2022 by Andrej Kolar
+//   . Removed reference to Hmin in all calculations to be compliant with the latest version of Annex A
 // Version 9.00, Date 07.02.2022 by Lothar Dittmer
 //   . support for PEV start scoring 
 //   . enter "PEVWaitTime=10" in DayTag to have PEV gate opening 10 min after PEV.
@@ -51,7 +53,7 @@ const UseHandicaps = 2;   // set to: 0 to disable handicapping, 1 to use handica
    
 var
   Dm, D1,
-  Dt, n1, n2, n3, n4, N, D0, Vo, T0, Hmin,
+  Dt, n1, n2, n3, n4, N, D0, Vo, T0,
   Pm, Pdm, Pvm, Pn, F, Fcr, Day: Double;
 
   D, H, Dh, M, T, Dc, Pd, V, Vh, Pv, S : double;
@@ -199,30 +201,13 @@ begin
   N := 0;  // Number of pilots having had a competition launch
   n1 := 0;  // Number of pilots with Marking distance greater than Dm - normally 100km
   n4 := 0;  // Number of competitors who achieve a Handicapped Distance (Dh) of at least Dm/2
-  Hmin := 100000;  // Lowest Handicap of all competitors in the class
-  
-  for i:=0 to GetArrayLength(Pilots)-1 do
-  begin
-    if UseHandicaps = 0 Then Pilots[i].Hcap := 1;
-    if (UseHandicaps = 2) and (Auto_Hcaps_on = false) Then Pilots[i].Hcap := 1;
-
-    if not Pilots[i].isHC Then
-    begin
-      if Pilots[i].Hcap < Hmin Then Hmin := Pilots[i].Hcap; // Lowest Handicap of all competitors in the class
-    end;
-  end;
-  if Hmin=0 Then begin
-          Info1 := '';
-	  Info2 := 'Error: Lowest handicap is zero!';
-  	Exit;
-  end;
 
   for i:=0 to GetArrayLength(Pilots)-1 do
   begin
     if not Pilots[i].isHC Then
     begin
-      if Pilots[i].dis*Hmin/Pilots[i].Hcap >= Dm Then n1 := n1+1;  // Competitors who have achieved at least Dm
-      if Pilots[i].dis*Hmin/Pilots[i].Hcap >= ( Dm / 2.0) Then n4 := n4+1;  // Number of competitors who achieve a Handicapped Distance (Dh) of at least Dm/2
+      if Pilots[i].dis/Pilots[i].Hcap >= Dm Then n1 := n1+1;  // Competitors who have achieved at least Dm
+      if Pilots[i].dis/Pilots[i].Hcap >= ( Dm / 2.0) Then n4 := n4+1;  // Number of competitors who achieve a Handicapped Distance (Dh) of at least Dm/2
       if Pilots[i].takeoff >= 0 Then N := N+1;    // Number of competitors in the class having had a competition launch that Day
     end;
   end;
@@ -240,23 +225,23 @@ begin
     if not Pilots[i].isHC Then
     begin
       // Find the highest Corrected distance
-      if Pilots[i].dis*Hmin/Pilots[i].Hcap > D0 Then D0 := Pilots[i].dis*Hmin/Pilots[i].Hcap;
+      if Pilots[i].dis/Pilots[i].Hcap > D0 Then D0 := Pilots[i].dis/Pilots[i].Hcap;
       
       // Find the highest finisher's speed of the day
       // and corresponding Task Time
-      if Pilots[i].speed*Hmin/Pilots[i].Hcap = Vo Then // in case of a tie, lowest Task Time applies
+      if Pilots[i].speed/Pilots[i].Hcap = Vo Then // in case of a tie, lowest Task Time applies
       begin
         if (Pilots[i].finish-Pilots[i].start) < T0 Then
         begin
-          Vo := Pilots[i].speed*Hmin/Pilots[i].Hcap;
+          Vo := Pilots[i].speed/Pilots[i].Hcap;
           T0 := Pilots[i].finish-Pilots[i].start;
         end;
       end
       else
       begin
-        if Pilots[i].speed*Hmin/Pilots[i].Hcap > Vo Then
+        if Pilots[i].speed/Pilots[i].Hcap > Vo Then
         begin
-          Vo := Pilots[i].speed*Hmin/Pilots[i].Hcap;
+          Vo := Pilots[i].speed/Pilots[i].Hcap;
           T0 := Pilots[i].finish-Pilots[i].start;
           if (AAT = true) and (T0 < Task.TaskTime) Then       // if marking time is shorter than Task time, Task time must be used for computations
             T0 := Task.TaskTime;
@@ -291,7 +276,7 @@ begin
     if not Pilots[i].isHC Then
     begin
       n3 := n3+1;
-      if Pilots[i].speed*Hmin/Pilots[i].Hcap > (2.0/3.0*Vo) Then
+      if Pilots[i].speed/Pilots[i].Hcap > (2.0/3.0*Vo) Then
       begin
         n2 := n2+1;
       end;
@@ -312,15 +297,15 @@ begin
     // For any finisher
     if Pilots[i].finish > 0 Then
     begin
-      Pv := Pvm * (Pilots[i].speed*Hmin/Pilots[i].Hcap - 2.0/3.0*Vo)/(1.0/3.0*Vo);
-      if Pilots[i].speed*Hmin/Pilots[i].Hcap < (2.0/3.0*Vo) Then Pv := 0;
+      Pv := Pvm * (Pilots[i].speed/Pilots[i].Hcap - 2.0/3.0*Vo)/(1.0/3.0*Vo);
+      if Pilots[i].speed/Pilots[i].Hcap < (2.0/3.0*Vo) Then Pv := 0;
       Pd := Pdm;
     end
     else
     //For any non-finisher
     begin
       Pv := 0;
-      Pd := Pdm * (Pilots[i].dis*Hmin/Pilots[i].Hcap/D0);
+      Pd := Pdm * (Pilots[i].dis/Pilots[i].Hcap/D0);
     end;
     
     // Pilot's score
