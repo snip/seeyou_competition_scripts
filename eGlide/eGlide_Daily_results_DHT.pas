@@ -101,7 +101,7 @@ begin
 
     //! Debug output
     Pilots[i].Warning := Pilots[i].Warning + 'Hmax: ' + FormatFloat('0',fr_Hmax);
-    Pilots[i].Warning := Pilots[i].Warning + #10 + 'R_hcap: ' + FormatFloat('0',R_hcap+' m; ';
+    Pilots[i].Warning := Pilots[i].Warning + #10 + 'R_hcap: ' + FormatFloat('0',R_hcap)+' m; ';
     Pilots[i].Warning := Pilots[i].Warning + #10 + 'Task points: ' + IntToStr(TaskPoints)+'; ';
     Pilots[i].Warning := Pilots[i].Warning + #10 + 'Pilot legs: ' + IntToStr(GetArrayLength(Pilots[i].Leg))+'; ';
     Pilots[i].Warning := Pilots[i].Warning + #10 + 'Pilot legsT: ' + IntToStr(GetArrayLength(Pilots[i].LegT))+'; ';
