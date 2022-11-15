@@ -1,4 +1,4 @@
-Program IGC_Annex_A_scoring_2022;
+Program IGC_Annex_A_scoring_2023_Alternative_Scoring;
 // Collaborate on writing scripts at Github:
 // https://github.com/naviter/seeyou_competition_scripts/
 //
