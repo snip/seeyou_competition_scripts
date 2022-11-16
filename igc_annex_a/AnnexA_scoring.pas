@@ -1,4 +1,4 @@
-Program IGC_Annex_A_scoring_2023_Alternative_Scoring;
+Program IGC_Annex_A_scoring_2022;
 // Collaborate on writing scripts at Github:
 // https://github.com/naviter/seeyou_competition_scripts/
 //
@@ -221,6 +221,11 @@ begin
   if (Hmin >= 5) and (Hmin < 50) then Hmin := 10;    // Just in case
   if (Hmin >= 0.5) and (Hmin < 5) then Hmin := 1;    // Typical IGC Annex A comps with handicaps around 1.000
   if (Hmin >= 0) and (Hmin < 0.5) then Hmin := Hmin; // Just in case
+  if Hmin = 0 then
+  begin
+    info1 := 'Hmin = 0 Correct the glider coefficient or set it to 0 in the UseHandicaps script';
+    exit;
+  end
 
   for i:=0 to GetArrayLength(Pilots)-1 do
   begin
