@@ -226,11 +226,6 @@ begin
   for i:=0 to GetArrayLength(Pilots)-1 do
   begin
     if not Pilots[i].isHC Then
-    if (Pilots[i].Hcap = 0) and (UseHandicaps <> 0) then
-      begin
-       info1 := 'Warning: Glider ' + Pilots[i].compID + ' ihas a hadicap 0, fix handicaps or set in script UseHandicaps=0';
-       exit;
-      end;
     begin
       if Pilots[i].dis*Hmin/Pilots[i].Hcap >= Dm Then n1 := n1+1;  // Competitors who have achieved at least Dm
       if Pilots[i].dis*Hmin/Pilots[i].Hcap >= ( Dm / 2.0) Then n4 := n4+1;  // Number of competitors who achieve a Handicapped Distance (Dh) of at least Dm/2
