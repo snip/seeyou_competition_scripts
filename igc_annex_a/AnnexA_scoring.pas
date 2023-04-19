@@ -2,6 +2,8 @@ Program IGC_Annex_A_scoring_2022;
 // Collaborate on writing scripts at Github:
 // https://github.com/naviter/seeyou_competition_scripts/
 //
+// Version 9.03, Date 19.04.2023 by Andrej Kolar
+//   . Renamed Vo to V0 for consistency with T0 and D0
 // Version 9.02, Date 17.07.2022 by Andrej Kolar
 //   . Reintroduced Hmin parameter to be able to calculate results for Handicaps between 80-130
 // Version 9.01, Date 08.07.2022 by Andrej Kolar
@@ -55,7 +57,7 @@ const UseHandicaps = 2;   // set to: 0 to disable handicapping, 1 to use handica
    
 var
   Dm, D1,
-  Dt, n1, n2, n3, n4, N, D0, Vo, T0, Hmin,
+  Dt, n1, n2, n3, n4, N, D0, V0, T0, Hmin,
   Pm, Pdm, Pvm, Pn, F, Fcr, Day: Double;
 
   D, H, Dh, M, T, Dc, Pd, V, Vh, Pv, S : double;
@@ -245,7 +247,7 @@ begin
   
   D0 := 0;
   T0 := 0;
-  Vo := 0;
+  V0 := 0;
   for i:=0 to GetArrayLength(Pilots)-1 do
   begin
     if not Pilots[i].isHC Then
@@ -255,19 +257,19 @@ begin
       
       // Find the highest finisher's speed of the day
       // and corresponding Task Time
-      if Pilots[i].speed*Hmin/Pilots[i].Hcap = Vo Then // in case of a tie, lowest Task Time applies
+      if Pilots[i].speed*Hmin/Pilots[i].Hcap = V0 Then // in case of a tie, lowest Task Time applies
       begin
         if (Pilots[i].finish-Pilots[i].start) < T0 Then
         begin
-          Vo := Pilots[i].speed*Hmin/Pilots[i].Hcap;
+          V0 := Pilots[i].speed*Hmin/Pilots[i].Hcap;
           T0 := Pilots[i].finish-Pilots[i].start;
         end;
       end
       else
       begin
-        if Pilots[i].speed*Hmin/Pilots[i].Hcap > Vo Then
+        if Pilots[i].speed*Hmin/Pilots[i].Hcap > V0 Then
         begin
-          Vo := Pilots[i].speed*Hmin/Pilots[i].Hcap;
+          V0 := Pilots[i].speed*Hmin/Pilots[i].Hcap;
           T0 := Pilots[i].finish-Pilots[i].start;
           if (AAT = true) and (T0 < Task.TaskTime) Then       // if marking time is shorter than Task time, Task time must be used for computations
             T0 := Task.TaskTime;
@@ -292,7 +294,7 @@ begin
   F := 1.25* n1/N;
   if F>1 Then F := 1;
   
-  // Number of competitors who have achieved at least 2/3 of best speed for the day Vo
+  // Number of competitors who have achieved at least 2/3 of best speed for the day V0
   n2 := 0;
   // Number of finishers, regardless of speed
   n3 := 0;
@@ -302,7 +304,7 @@ begin
     if not Pilots[i].isHC Then
     begin
       n3 := n3+1;
-      if Pilots[i].speed*Hmin/Pilots[i].Hcap > (2.0/3.0*Vo) Then
+      if Pilots[i].speed*Hmin/Pilots[i].Hcap > (2.0/3.0*V0) Then
       begin
         n2 := n2+1;
       end;
@@ -323,8 +325,8 @@ begin
     // For any finisher
     if Pilots[i].finish > 0 Then
     begin
-      Pv := Pvm * (Pilots[i].speed*Hmin/Pilots[i].Hcap - 2.0/3.0*Vo)/(1.0/3.0*Vo);
-      if Pilots[i].speed*Hmin/Pilots[i].Hcap < (2.0/3.0*Vo) Then Pv := 0;
+      Pv := Pvm * (Pilots[i].speed*Hmin/Pilots[i].Hcap - 2.0/3.0*V0)/(1.0/3.0*V0);
+      if Pilots[i].speed*Hmin/Pilots[i].Hcap < (2.0/3.0*V0) Then Pv := 0;
       Pd := Pdm;
     end
     else
@@ -373,7 +375,7 @@ begin
   Info3 := Info3 + ', n1: ' + IntToStr(Round(n1));
   Info3 := Info3 + ', n2: ' + IntToStr(Round(n2));
   Info3 := Info3 + ', Do: ' + FormatFloat('0.00',D0/1000.0) + 'km';
-  Info3 := Info3 + ', Vo: ' + FormatFloat('0.00',Vo*3.6) + 'km/h';
+  Info3 := Info3 + ', Vo: ' + FormatFloat('0.00',V0*3.6) + 'km/h';
   
 // Give out PEV as Warnings
 // PevStartTimeBuffer is set to 30
