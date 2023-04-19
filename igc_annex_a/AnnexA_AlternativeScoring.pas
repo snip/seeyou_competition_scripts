@@ -1,72 +1,27 @@
-Program IGC_Annex_A_scoring_2022;
+Program IGC_Annex_A_Alternative_scoring_2022;
 // Collaborate on writing scripts at Github:
 // https://github.com/naviter/seeyou_competition_scripts/
-//
-// Version 9.02, Date 17.07.2022 by Andrej Kolar
-//   . Reintroduced Hmin parameter to be able to calculate results for Handicaps between 80-130
-// Version 9.01, Date 08.07.2022 by Andrej Kolar
-//   . Removed reference to Hmin in all calculations to be compliant with the latest version of Annex A
-// Version 9.00, Date 07.02.2022 by Lothar Dittmer
-//   . support for PEV start scoring 
-//   . enter "PEVWaitTime=10" in DayTag to have PEV gate opening 10 min after PEV.
-//   . enter "PEVStartWindow=10" in DayTag to have 10 min long startwindows after PEV. 
-//   . separate Tags with Blank ' ' (required)
-//   . example: DayTag: "PEVWaitTime=10 PEVStartWindow=10" allows 3 possible start windows with length 10min starting 10 min after PEV 1,2 or 3
-//   . if "AllUserWrng" in DayTag is set to 0 user warning with PEVs is only shown if penalty should be necessary otherwise PEVs are displayed
-//   . buffer zone as a script parameter
-//   . added start speed interpolation according to DAEC SWO 7.3.5
-//   . enter "MaxStSpd=130" in DayTag to have interpolation and userwarnings if average start speed is higher than 130km/h 
-// Version 8.01, Date 20.04.2021
-//   . added ReadDayTagParameter() function to read any DayTag parameter
-//   . parameters in DayTag now have to be separated by space (only)
-//   . example: "PEVWaitTime=10 PEVStartWindow=10"
-// Version 8.00, Date 26.06.2019
-//   . merged all scripts into one
-//   . by default UseHandicaps is in auto mode
-//   . new n3 and n4 parameters (currently unused)
-//   . redesigned Info fields
-//   . renamed V0 to Vo
-// Version 7.01
-//   . D1 is set to a default value. Previously it did not work with unknown class
-// Version 7.00
-//   . Support for new Annex A rules for minimum distance & 1000 points allocation per class
-// Version 5.02, Date 25.04.2018
-//   . Bugfix in Fcr formula
-// Version 5.01, Date 03.04.2018
-//   . Bugfix division by zero
-// Version 5.00, Date 23.03.2018
-//   . Task Completion Ratio factor added according to SC03 2017 Edition valid from 1 October 2017, updated 4 January 2018
-// Version 3.30, Date 10.01.2013
-//   . BugFix: Td exchanged with Task.TaskTime - This fix is critical for all versions of SeeYou later than SeeYou 4.2
-// Version 3.20, Date 04.07.2008
-// Version 3.0
-//   . Added Hmin instead of H0. Score is now calculated using minimum handicap as opposed to maximum handicap as before
-// Version 3.01
-//   . Changed if Pilots[i].takeoff > 0 to if Pilots[i].takeoff >= 0. It is theoretically possible that one takes off at 00:00:00 UTC
-//   . Changed if Pilots[i].start > 0 to if Pilots[i].start >= 0. It is theoretically possible that one starts at 00:00:00 UTC
-// Version 3.10
-//   . removed line because it doesn't exist in Annex A 2006:
-// 			if Pilots[i].dis*Hmin/Pilots[i].Hcap < (2.0/3.0*D0) Then Pd := Pdm*Pilots[i].dis*Hmin/Pilots[i].Hcap/(2.0/3.0*D0);
-// Version 3.20
-//   . added warnings when Exit 
+// Version 1.00
+//   . First implementation of Alternate scoring according to Annex A version February 7, 2022
+//   . Definition of median: https://en.wikipedia.org/wiki/Median
 
 const UseHandicaps = 2;   // set to: 0 to disable handicapping, 1 to use handicaps, 2 is auto (handicaps only for club and multi-seat)
       PevStartTimeBuffer = 30; // PEV which is less than PevStartTimeBuffer seconds later than last PEV will be ignored and not counted
    
 var
   Dm, D1,
-  Dt, n1, n2, n3, n4, N, D0, Vo, T0, Hmin,
-  Pm, Pdm, Pvm, Pn, F, Fcr, Day: Double;
+  Dt, n1, n2, n3, n4, N, D0, V0, T0, Hmin,
+  Pm, Pdm, Pvm, Pn, F, Fcr, Day, Sp, Sp0, Spm, SumSp, SpMedian, DevaluateDay: Double;
 
   D, H, Dh, M, T, Dc, Pd, V, Vh, Pv, S : double;
   
   PmaxDistance, PmaxTime : double;
   
   i,j : integer;
-  PevWaitTime,PEVStartWindow,AllUserWrng, PilotStartInterval, PilotStartTime, PilotPEVStartTime,StartTimeBuffer,MaxStartSpeed : Integer;
+  PevWaitTime,PEVStartWindow,AllUserWrng, PilotStartInterval, PilotStartTime, PilotPEVStartTime,StartTimeBuffer,MaxStartSpeed,nSp0 : Integer;
   AAT : boolean;
   Auto_Hcaps_on : boolean;
-  
+    
   // Starttime calculation and PEV Warnings
   PilotStartSpeed, PilotStartSpeedSum, PilotStartSpeedFixes : double;
   ActMarker  : TMarker; 
@@ -200,9 +155,10 @@ begin
     end;  
 
   // Calculation of basic parameters
-  N := 0;  // Number of pilots having had a competition launch
+  N := 0;   // Number of pilots having had a competition launch
   n1 := 0;  // Number of pilots with Marking distance greater than Dm - normally 100km
-  n4 := 0;  // Number of competitors who achieve a Handicapped Distance (Dh) of at least Dm/2
+  n2 := 0;  // Number of competitors who have achieved at least 2/3 of best speed for the day V0
+  n3 := 0;  // Number of finishers, regardless of speed
   Hmin := 100000;  // Lowest Handicap of all competitors in the class
   
   for i:=0 to GetArrayLength(Pilots)-1 do
@@ -228,7 +184,7 @@ begin
     if not Pilots[i].isHC Then
     begin
       if Pilots[i].dis*Hmin/Pilots[i].Hcap >= Dm Then n1 := n1+1;  // Competitors who have achieved at least Dm
-      if Pilots[i].dis*Hmin/Pilots[i].Hcap >= ( Dm / 2.0) Then n4 := n4+1;  // Number of competitors who achieve a Handicapped Distance (Dh) of at least Dm/2
+	  if Pilots[i].finish > 0 Then n3 := n3+1; // Competitors who completed the task, regardless of speed
       if Pilots[i].takeoff >= 0 Then N := N+1;    // Number of competitors in the class having had a competition launch that Day
     end;
   end;
@@ -240,7 +196,7 @@ begin
   
   D0 := 0;
   T0 := 0;
-  Vo := 0;
+  V0 := 0;
   for i:=0 to GetArrayLength(Pilots)-1 do
   begin
     if not Pilots[i].isHC Then
@@ -250,19 +206,19 @@ begin
       
       // Find the highest finisher's speed of the day
       // and corresponding Task Time
-      if Pilots[i].speed*Hmin/Pilots[i].Hcap = Vo Then // in case of a tie, lowest Task Time applies
+      if Pilots[i].speed*Hmin/Pilots[i].Hcap = V0 Then // in case of a tie, lowest Task Time applies
       begin
         if (Pilots[i].finish-Pilots[i].start) < T0 Then
         begin
-          Vo := Pilots[i].speed*Hmin/Pilots[i].Hcap;
+          V0 := Pilots[i].speed*Hmin/Pilots[i].Hcap;
           T0 := Pilots[i].finish-Pilots[i].start;
         end;
       end
       else
       begin
-        if Pilots[i].speed*Hmin/Pilots[i].Hcap > Vo Then
+        if Pilots[i].speed*Hmin/Pilots[i].Hcap > V0 Then
         begin
-          Vo := Pilots[i].speed*Hmin/Pilots[i].Hcap;
+          V0 := Pilots[i].speed*Hmin/Pilots[i].Hcap;
           T0 := Pilots[i].finish-Pilots[i].start;
           if (AAT = true) and (T0 < Task.TaskTime) Then       // if marking time is shorter than Task time, Task time must be used for computations
             T0 := Task.TaskTime;
@@ -284,53 +240,71 @@ begin
   Pm := MinValue( PmaxDistance, PmaxTime, 1000.0 );
   
   // Day Factor
-  F := 1.25* n1/N;
+  F := Pm/1000;
   if F>1 Then F := 1;
-  
-  // Number of competitors who have achieved at least 2/3 of best speed for the day Vo
-  n2 := 0;
-  // Number of finishers, regardless of speed
-  n3 := 0;
-
-  for i:=0 to GetArrayLength(Pilots)-1 do
-  begin
-    if not Pilots[i].isHC Then
-    begin
-      n3 := n3+1;
-      if Pilots[i].speed*Hmin/Pilots[i].Hcap > (2.0/3.0*Vo) Then
-      begin
-        n2 := n2+1;
-      end;
-    end;
-  end;
   
   // Completion Ratio Factor
   Fcr := 1;
   if n1 > 0 then
-    Fcr := 1.2*(n2/n1)+0.6;
+    Fcr := 1.2*(n3/n1)+0.6;
   if Fcr>1 Then Fcr := 1;
 
-  Pvm := 2.0/3.0 * (n2/N) * Pm;  // maximum available Speed Points for the Day
-  Pdm := Pm-Pvm;                 // maximum available Distance Points for the Day
-  
+
+  // Competitor's provisional score
+  Sp0 := 0;  // Highest provisional score of the day
+  nSp0 := 0; // Number of competitors with provisional score more than zero
+
   for i:=0 to GetArrayLength(Pilots)-1 do
   begin
     // For any finisher
     if Pilots[i].finish > 0 Then
     begin
-      Pv := Pvm * (Pilots[i].speed*Hmin/Pilots[i].Hcap - 2.0/3.0*Vo)/(1.0/3.0*Vo);
-      if Pilots[i].speed*Hmin/Pilots[i].Hcap < (2.0/3.0*Vo) Then Pv := 0;
-      Pd := Pdm;
+      Pv := 1000 * (Pilots[i].speed*Hmin/Pilots[i].Hcap / V0);
+      Pd := 750 * (Pilots[i].dis*Hmin/Pilots[i].Hcap/D0);
     end
-    else
-    //For any non-finisher
+    else //For any non-finisher
     begin
       Pv := 0;
-      Pd := Pdm * (Pilots[i].dis*Hmin/Pilots[i].Hcap/D0);
+      Pd := 750 * (Pilots[i].dis*Hmin/Pilots[i].Hcap/D0);
     end;
     
-    // Pilot's score
-    Pilots[i].Points := Round( F*Fcr*(Pd+Pv) - Pilots[i].Penalty );
+    // Points for each pilot
+	if Pv > Pd Then
+	begin
+      Pilots[i].Points := Round( F*Fcr*Pv - Pilots[i].Penalty );
+	end
+	else // Pd is more than Pv
+	begin
+      Pilots[i].Points := Round( F*Fcr*Pd - Pilots[i].Penalty );
+	end;
+	
+	// Sp0 - maximum provisional score for the day
+	if Pilots[i].Points > Sp0 Then
+	begin
+	  Sp0 := Pilots[i].Points;
+	  nSp0 := nSp0+1;
+	end;
+  end;
+  
+  // Find median provisional score
+  // This is not median, it is mean because this script doesn't have access to Sort algorithm. A sort function is needed to fix this
+  SumSp := 0;
+  for i:=0 to GetArrayLength(Pilots)-1 do
+  begin
+    if Pilots[i].Points > 0 Then
+	  SumSp := SumSp+Pilots[i].Points;
+  end;
+  if (SumSp > 0) and (nSp0 > 0) Then
+    SpMedian := SumSp/nSp0;
+  if (Sp0-SpMedian) > 200 Then
+	DevaluateDay := MinValue( 1,1,200/(Sp0-SpMedian) )
+  else
+    DevaluateDay := 1;
+  
+  // Assign score to each pilot
+  for i:=0 to GetArrayLength(Pilots)-1 do
+  begin
+    Pilots[i].Points := DevaluateDay * Pilots[i].Points;
   end;
   
   // Data which is presented in the score-sheets
@@ -351,7 +325,6 @@ begin
   Info1 := Info1 + 'Maximum Points: '+IntToStr(Round(Pm));
   Info1 := Info1 + ', F = '+FormatFloat('0.000',F);
   Info1 := Info1 + ', Fcr = '+FormatFloat('0.000',Fcr);
-  Info1 := Info1 + ', Max speed pts: '+IntToStr(Round(Pvm));
 
   if (n1/N) <= 0.25 then
     Info1 := 'Day not valid - rule 8.2.1b';
@@ -368,7 +341,7 @@ begin
   Info3 := Info3 + ', n1: ' + IntToStr(Round(n1));
   Info3 := Info3 + ', n2: ' + IntToStr(Round(n2));
   Info3 := Info3 + ', Do: ' + FormatFloat('0.00',D0/1000.0) + 'km';
-  Info3 := Info3 + ', Vo: ' + FormatFloat('0.00',Vo*3.6) + 'km/h';
+  Info3 := Info3 + ', Vo: ' + FormatFloat('0.00',V0*3.6) + 'km/h';
   
 // Give out PEV as Warnings
 // PevStartTimeBuffer is set to 30
