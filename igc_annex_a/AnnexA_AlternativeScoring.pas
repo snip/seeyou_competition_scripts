@@ -252,7 +252,6 @@ begin
 
   // Competitor's provisional score
   Sp0 := 0;  // Highest provisional score of the day
-  nSp0 := 0; // Number of competitors with provisional score more than zero
 
   for i:=0 to GetArrayLength(Pilots)-1 do
   begin
@@ -282,17 +281,20 @@ begin
 	if Pilots[i].Points > Sp0 Then
 	begin
 	  Sp0 := Pilots[i].Points;
-	  nSp0 := nSp0+1;
 	end;
   end;
   
   // Find median provisional score
   // This is not median, it is mean because this script doesn't have access to Sort algorithm. A sort function is needed to fix this
   SumSp := 0;
+  nSp0 := 0; // Number of competitors with provisional score more than zero
   for i:=0 to GetArrayLength(Pilots)-1 do
   begin
     if Pilots[i].Points > 0 Then
+	begin
 	  SumSp := SumSp+Pilots[i].Points;
+	  nSp0 := nSp0+1
+	end;
   end;
   if (SumSp > 0) and (nSp0 > 0) Then
     SpMedian := SumSp/nSp0;
@@ -325,6 +327,7 @@ begin
   Info1 := Info1 + 'Maximum Points: '+IntToStr(Round(Pm));
   Info1 := Info1 + ', F = '+FormatFloat('0.000',F);
   Info1 := Info1 + ', Fcr = '+FormatFloat('0.000',Fcr);
+  Info1 := Info1 + ', DevaluateDay = '+FormatFloat('0.000',DevaluateDay);
 
   if (n1/N) <= 0.25 then
     Info1 := 'Day not valid - rule 8.2.1b';
@@ -339,7 +342,7 @@ begin
   // for debugging:
   Info3 := Info3 +' N: ' + IntToStr(Round(N));
   Info3 := Info3 + ', n1: ' + IntToStr(Round(n1));
-  Info3 := Info3 + ', n2: ' + IntToStr(Round(n2));
+  Info3 := Info3 + ', n3: ' + IntToStr(Round(n3));
   Info3 := Info3 + ', Do: ' + FormatFloat('0.00',D0/1000.0) + 'km';
   Info3 := Info3 + ', Vo: ' + FormatFloat('0.00',V0*3.6) + 'km/h';
   
