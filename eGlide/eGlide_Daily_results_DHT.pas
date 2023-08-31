@@ -10,15 +10,13 @@ const
   RefPower = 120*280; // Fallback when only ENL is available (Antares in case of E2Glide 2020)
   FreeAllowance = 2000; // Watt-hours. No penalty if less power was consumed
   EnginePenaltyPerSec = 1;    // Penalty in seconds per Watt-hour consumed over Free Allowance. 1000 Wh of energy allows you to cruise for 15 minutes.
-  Fa = 1.15;           // Amount of time penalty for next finisher / outlander
-  MaxDelay = 20*60;   // Maximum delay for finishers and outlanders in seconds
 
 var
   fr_Hmax,
   Dm, D1,
   Dt, n1, n2, n3, n4, N, D0, Vo, T0, Tm,
   Pm, Pdm, Pvm, Pn, F, Fcr, Day: Double;
-  D, H, Dh, M, T, Dc, Pd, V, Vh, Pv, S, R_hcap, PilotDis : double;
+  D, H, Dh, M, T, Tmin, Tmax, Tcutoff, MaxDelay, Dc, Pd, V, Vh, Pv, S, R_hcap, PilotDis : double;
   PmaxDistance, PmaxTime, PilotEnergyConsumption, CurrentPower, PilotEngineTime, EnginePenalty, ScoringFinish  : double;
   i,j, minIdx : integer;
   str : String;
@@ -87,6 +85,20 @@ begin
   // initial checks
   if GetArrayLength(Pilots) <= 1 then
     exit; 
+	
+  // Calculate number of pilots with a valid takeoff (N)
+  for i:=0 to GetArrayLength(Pilots)-1 do
+  begin
+    if not Pilots[i].isHC Then
+    begin
+      if Pilots[i].takeoff >= 0 Then N := N+1;    // Number of competitors in the class having had a competition launch that Day
+    end;
+  end;
+  if N=0 Then begin
+          Info1 := '';
+	  Info2 := 'Warning: Number of competition pilots launched is zero';
+  	Exit;
+  end;
 
   // Calculate Distance flown for each pilot depending Radius(Hcap)
   TaskPoints := GetArrayLength(Task.Point);
@@ -343,10 +355,31 @@ begin
       end;
     end;
   end;
+  
+  // TODO find the number of pilot who flew faster than T0*1.2 (n3)
+  n3 := 0;
+  Tcutoff := 1.2 * T0;
+  for i:=0 to GetArrayLength(Pilots)-1 do
+  begin
+    if not Pilots[i].isHC Then
+    begin
+	  if Pilots[i].finish > 0 Then
+	  begin
+        if (Pilots[i].finish-Task.NoStartBeforeTime) < Tcutoff Then
+          n3 := n3 + 1;
+	  end;
+    end;
+  end;
+  MaxDelay := 0.2 * T0 * n3/N;
+
 
   //! Debug output
   Info4 := 'Fastest (T0) = ' + FormatFloat('0',T0);
   Info4 := Info4 + '; Slowest (Tm) = ' + FormatFloat('0',Tm);
+  Info4 := Info4 + '; N = ' + FormatFloat('0',N);
+  Info4 := Info4 + '; n3 = ' + FormatFloat('0',n3);
+  Info4 := Info4 + '; Tcutoff = ' + FormatFloat('0',Tcutoff);
+  Info4 := Info4 + '; MaxDelay = ' + FormatFloat('0',MaxDelay);
 
   
   // ELAPSED TIME SCORING
@@ -365,8 +398,8 @@ begin
     end
     else
     begin
-      // Outlanders get 20 minutes delay
-        Pilots[i].Points := -1 * MaxDelay / 60;
+      // Non-finishers get a maximum time difference for a day
+      Pilots[i].Points := -1* MaxDelay / 60;
     end;
 
     //Worst score a pilot can get is 1.2 times the last finisher's time.
@@ -380,7 +413,7 @@ begin
 
   // Info fields, also presented on the Score Sheets
   Info1 := 'Elapsed time race with distance handicapping.';
-  Info1 := Info1 + 'Results are in minutes behind leader'; 
+  Info1 := Info1 + 'Results are in decimal minutes behind the leader'; 
   // for i := 0 to GetArrayLength(Pilots[i]) do
   // begin
 
